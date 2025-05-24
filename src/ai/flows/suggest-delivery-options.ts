@@ -1,9 +1,9 @@
 // use server'
 
 /**
- * @fileOverview AI agent to suggest optimal delivery options.
+ * @fileOverview A delivery options suggestion AI agent.
  *
- * - suggestDeliveryOptions - A function that suggests delivery options based on package size, delivery urgency, and location.
+ * - suggestDeliveryOptions - A function that handles the delivery options suggestion process.
  * - SuggestDeliveryOptionsInput - The input type for the suggestDeliveryOptions function.
  * - SuggestDeliveryOptionsOutput - The return type for the suggestDeliveryOptions function.
  */
@@ -12,37 +12,23 @@ import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
 
 const SuggestDeliveryOptionsInputSchema = z.object({
-  packageSize: z
-    .string()
-    .describe('The size of the package (small, medium, large).'),
-  deliveryUrgency: z
-    .string()
-    .describe('The delivery urgency (standard, express, urgent).'),
-  deliveryLocation: z
-    .string()
-    .describe('The delivery location (address).'),
+  clientLocation: z.string().describe('The location of the client.'),
+  packageSize: z.string().describe('The size of the package (small, medium, large).'),
+  packageWeight: z.number().describe('The weight of the package in kilograms.'),
 });
-export type SuggestDeliveryOptionsInput = z.infer<
-  typeof SuggestDeliveryOptionsInputSchema
->;
+export type SuggestDeliveryOptionsInput = z.infer<typeof SuggestDeliveryOptionsInputSchema>;
 
 const SuggestDeliveryOptionsOutputSchema = z.object({
-  courierSuggestion: z
+  suggestedOptions: z
+    .array(z.string())
+    .describe('An array of suggested delivery options based on the input data.'),
+  reasoning: z
     .string()
-    .describe('The suggested courier for the delivery.'),
-  routeSuggestion: z.string().describe('The suggested route for the delivery.'),
-  estimatedDeliveryTime: z
-    .string()
-    .describe('The estimated delivery time.'),
-  estimatedCost: z.string().describe('The estimated delivery cost.'),
+    .describe('The reasoning behind the suggested delivery options.'),
 });
-export type SuggestDeliveryOptionsOutput = z.infer<
-  typeof SuggestDeliveryOptionsOutputSchema
->;
+export type SuggestDeliveryOptionsOutput = z.infer<typeof SuggestDeliveryOptionsOutputSchema>;
 
-export async function suggestDeliveryOptions(
-  input: SuggestDeliveryOptionsInput
-): Promise<SuggestDeliveryOptionsOutput> {
+export async function suggestDeliveryOptions(input: SuggestDeliveryOptionsInput): Promise<SuggestDeliveryOptionsOutput> {
   return suggestDeliveryOptionsFlow(input);
 }
 
@@ -50,19 +36,15 @@ const prompt = ai.definePrompt({
   name: 'suggestDeliveryOptionsPrompt',
   input: {schema: SuggestDeliveryOptionsInputSchema},
   output: {schema: SuggestDeliveryOptionsOutputSchema},
-  prompt: `You are a logistics expert. Based on the package size, delivery urgency, and delivery location, suggest the optimal delivery options.
+  prompt: `You are a delivery expert. Based on the client's location, package size, and package weight, suggest suitable delivery options.
 
+Client Location: {{{clientLocation}}}
 Package Size: {{{packageSize}}}
-Delivery Urgency: {{{deliveryUrgency}}}
-Delivery Location: {{{deliveryLocation}}}
+Package Weight: {{{packageWeight}}} kg
 
-Consider various factors such as cost, speed, and reliability to provide the best recommendations.
+Consider factors like cost, speed, and reliability when suggesting options. Provide a brief reasoning for each suggestion.
 
-Output in the format:
-Courier Suggestion: [Courier Name]
-Route Suggestion: [Optimal Route]
-Estimated Delivery Time: [Time]
-Estimated Cost: [Cost]`,
+Format your response as a JSON object with 'suggestedOptions' (an array of delivery options) and 'reasoning' (an explanation of why these options are suitable).`,
 });
 
 const suggestDeliveryOptionsFlow = ai.defineFlow(
