@@ -2,7 +2,7 @@
 "use client";
 
 import type { ColumnDef } from "@tanstack/react-table";
-import type { Shipment } from "@/lib/types";
+import type { ShipmentWithRelations } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ArrowUpDown, MoreHorizontal, Edit, Trash2, Eye } from "lucide-react";
@@ -18,10 +18,10 @@ import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 
 export const getShipmentColumns = (
-    onViewDetails: (shipment: Shipment) => void,
-    onEdit: (shipment: Shipment) => void, // Placeholder for edit functionality
-    onDelete: (shipment: Shipment) => void // Placeholder for delete functionality
-): ColumnDef<Shipment>[] => [
+    onViewDetails: (shipment: ShipmentWithRelations) => void,
+    onEdit: (shipment: ShipmentWithRelations) => void,
+    onDelete: (shipment: ShipmentWithRelations) => void
+): ColumnDef<ShipmentWithRelations>[] => [
   {
     accessorKey: "id",
     header: ({ column }) => (
@@ -29,11 +29,12 @@ export const getShipmentColumns = (
         ID Envío <ArrowUpDown className="ml-2 h-4 w-4" />
       </Button>
     ),
-    cell: ({ row }) => <div className="font-medium">#{row.original.id.substring(0,6)}...</div>
+    cell: ({ row }) => <div className="font-medium uppercase">{row.original.id.substring(0,8)}</div>
   },
   {
-    accessorKey: "clientName",
+    accessorKey: "clients.name", // Access nested client name
     header: "Cliente",
+    cell: ({ row }) => row.original.clients?.name || 'N/A',
   },
   {
     accessorKey: "origin",
@@ -54,23 +55,23 @@ export const getShipmentColumns = (
       let className = "";
       switch (status) {
         case "Pending": variant = "secondary"; break;
-        case "In Transit": variant = "outline"; className = "border-accent text-accent"; break; // Orange for In Transit
-        case "Delivered": variant = "default"; break; // Primary for Delivered
+        case "In Transit": variant = "outline"; className = "border-accent text-accent"; break;
+        case "Delivered": variant = "default"; break;
         case "Cancelled": variant = "destructive"; break;
-        case "Issue": variant = "destructive"; className = "bg-yellow-500 text-white border-yellow-500"; break; // Custom for Issue
+        case "Issue": variant = "destructive"; className = "bg-yellow-500 text-white border-yellow-500"; break;
       }
       return <Badge variant={variant} className={className}>{status}</Badge>;
     },
   },
   {
-    accessorKey: "creationDate",
+    accessorKey: "created_at", // Changed from creationDate
     header: "Fecha Creación",
-    cell: ({ row }) => format(new Date(row.original.creationDate), "dd MMM yyyy", { locale: es }),
+    cell: ({ row }) => format(new Date(row.original.created_at), "dd MMM yyyy", { locale: es }),
   },
   {
     accessorKey: "cost",
     header: "Costo",
-    cell: ({row}) => row.original.cost ? `$${row.original.cost.toFixed(2)}` : 'N/A'
+    cell: ({row}) => row.original.cost ? `$${Number(row.original.cost).toFixed(2)}` : 'N/A'
   },
   {
     id: "actions",
@@ -89,13 +90,12 @@ export const getShipmentColumns = (
             <DropdownMenuItem onClick={() => onViewDetails(shipment)}>
               <Eye className="mr-2 h-4 w-4" /> Ver Detalles
             </DropdownMenuItem>
-            {/* Placeholder actions, can be implemented later */}
-            <DropdownMenuItem onClick={() => onEdit(shipment)} disabled>
-              <Edit className="mr-2 h-4 w-4" /> Editar (Próximamente)
+            <DropdownMenuItem onClick={() => onEdit(shipment)}>
+              <Edit className="mr-2 h-4 w-4" /> Editar
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={() => onDelete(shipment)} className="text-destructive focus:text-destructive focus:bg-destructive/10" disabled>
-              <Trash2 className="mr-2 h-4 w-4" /> Eliminar (Próximamente)
+            <DropdownMenuItem onClick={() => onDelete(shipment)} className="text-destructive focus:text-destructive focus:bg-destructive/10">
+              <Trash2 className="mr-2 h-4 w-4" /> Eliminar
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

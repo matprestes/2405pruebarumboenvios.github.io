@@ -3,7 +3,6 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
-import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -14,46 +13,44 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import type { Client } from "@/lib/types";
+import { clientSchema, type ClientFormData } from "@/lib/schemas";
 import { useEffect } from "react";
-
-const clientFormSchema = z.object({
-  id: z.string().optional(),
-  name: z.string().min(2, { message: "El nombre debe tener al menos 2 caracteres." }),
-  email: z.string().email({ message: "Email inválido." }),
-  phone: z.string().min(7, { message: "El teléfono debe tener al menos 7 caracteres." }),
-  address: z.string().min(5, { message: "La dirección debe tener al menos 5 caracteres." }),
-});
-
-type ClientFormData = z.infer<typeof clientFormSchema>;
 
 interface ClientFormDialogProps {
   isOpen: boolean;
   onClose: () => void;
   onSubmit: (data: ClientFormData) => void;
-  client?: Client | null; // For editing
+  client?: Client | null; 
 }
 
 export function ClientFormDialog({ isOpen, onClose, onSubmit, client }: ClientFormDialogProps) {
   const form = useForm<ClientFormData>({
-    resolver: zodResolver(clientFormSchema),
+    resolver: zodResolver(clientSchema),
     defaultValues: client || { name: "", email: "", phone: "", address: "" },
   });
 
   useEffect(() => {
-    if (client) {
-      form.reset(client);
-    } else {
-      form.reset({ name: "", email: "", phone: "", address: "" });
+    if (isOpen) { // Reset form only when dialog opens
+      if (client) {
+        form.reset({
+          id: client.id,
+          name: client.name,
+          email: client.email,
+          phone: client.phone || "",
+          address: client.address || ""
+        });
+      } else {
+        form.reset({ name: "", email: "", phone: "", address: "" });
+      }
     }
   }, [client, form, isOpen]);
 
 
   const handleFormSubmit = (data: ClientFormData) => {
     onSubmit(data);
-    onClose();
+    // onClose will be called by parent on successful submission
   };
 
   return (
@@ -100,7 +97,7 @@ export function ClientFormDialog({ isOpen, onClose, onSubmit, client }: ClientFo
                 <FormItem>
                   <FormLabel>Teléfono</FormLabel>
                   <FormControl>
-                    <Input placeholder="123456789" {...field} />
+                    <Input placeholder="123456789" {...field} value={field.value ?? ""} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -113,7 +110,7 @@ export function ClientFormDialog({ isOpen, onClose, onSubmit, client }: ClientFo
                 <FormItem>
                   <FormLabel>Dirección</FormLabel>
                   <FormControl>
-                    <Input placeholder="Calle Falsa 123, Ciudad" {...field} />
+                    <Input placeholder="Calle Falsa 123, Ciudad" {...field} value={field.value ?? ""} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>

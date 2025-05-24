@@ -2,8 +2,7 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm, Controller } from "react-hook-form";
-import { z } from "zod";
+import { useForm } from "react-hook-form";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -17,18 +16,8 @@ import { Input } from "@/components/ui/input";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { Courier } from "@/lib/types";
+import { courierSchema, type CourierFormData } from "@/lib/schemas";
 import { useEffect } from "react";
-
-const courierFormSchema = z.object({
-  id: z.string().optional(),
-  name: z.string().min(2, { message: "El nombre del repartidor debe tener al menos 2 caracteres." }),
-  vehicleType: z.enum(['Motorcycle', 'Car', 'Van', 'Bicycle', 'Truck'], { required_error: "El tipo de vehículo es requerido."}),
-  plateNumber: z.string().min(3, { message: "La matrícula debe tener al menos 3 caracteres." }),
-  phone: z.string().min(7, { message: "El teléfono debe tener al menos 7 caracteres." }),
-  status: z.enum(['Available', 'On Delivery', 'Offline'], { required_error: "El estado es requerido."}),
-});
-
-type CourierFormData = z.infer<typeof courierFormSchema>;
 
 interface CourierFormDialogProps {
   isOpen: boolean;
@@ -39,27 +28,35 @@ interface CourierFormDialogProps {
 
 export function CourierFormDialog({ isOpen, onClose, onSubmit, courier }: CourierFormDialogProps) {
   const form = useForm<CourierFormData>({
-    resolver: zodResolver(courierFormSchema),
+    resolver: zodResolver(courierSchema),
     defaultValues: courier || { 
       name: "", 
-      vehicleType: "Motorcycle", 
-      plateNumber: "", 
+      vehicle_type: "Motorcycle", 
+      plate_number: "", 
       phone: "", 
       status: "Available" 
     },
   });
   
   useEffect(() => {
-    if (courier) {
-      form.reset(courier);
-    } else {
-      form.reset({ name: "", vehicleType: "Motorcycle", plateNumber: "", phone: "", status: "Available" });
+    if(isOpen) {
+      if (courier) {
+        form.reset({
+          id: courier.id,
+          name: courier.name,
+          vehicle_type: courier.vehicle_type || "Motorcycle",
+          plate_number: courier.plate_number || "",
+          phone: courier.phone || "",
+          status: courier.status || "Available",
+        });
+      } else {
+        form.reset({ name: "", vehicle_type: "Motorcycle", plate_number: "", phone: "", status: "Available" });
+      }
     }
   }, [courier, form, isOpen]);
 
   const handleFormSubmit = (data: CourierFormData) => {
     onSubmit(data);
-    onClose();
   };
 
   return (
@@ -88,11 +85,11 @@ export function CourierFormDialog({ isOpen, onClose, onSubmit, courier }: Courie
             />
             <FormField
               control={form.control}
-              name="vehicleType"
+              name="vehicle_type"
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Tipo de Vehículo</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <Select onValueChange={field.onChange} defaultValue={field.value || undefined}>
                     <FormControl>
                       <SelectTrigger>
                         <SelectValue placeholder="Seleccione tipo de vehículo" />
@@ -112,12 +109,12 @@ export function CourierFormDialog({ isOpen, onClose, onSubmit, courier }: Courie
             />
             <FormField
               control={form.control}
-              name="plateNumber"
+              name="plate_number"
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Matrícula</FormLabel>
                   <FormControl>
-                    <Input placeholder="XYZ-123" {...field} />
+                    <Input placeholder="XYZ-123" {...field} value={field.value ?? ""} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -130,7 +127,7 @@ export function CourierFormDialog({ isOpen, onClose, onSubmit, courier }: Courie
                 <FormItem>
                   <FormLabel>Teléfono</FormLabel>
                   <FormControl>
-                    <Input placeholder="1122334455" {...field} />
+                    <Input placeholder="1122334455" {...field} value={field.value ?? ""} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -142,7 +139,7 @@ export function CourierFormDialog({ isOpen, onClose, onSubmit, courier }: Courie
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Estado</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <Select onValueChange={field.onChange} defaultValue={field.value || undefined}>
                     <FormControl>
                       <SelectTrigger>
                         <SelectValue placeholder="Seleccione estado" />

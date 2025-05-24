@@ -3,7 +3,6 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
-import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -16,43 +15,41 @@ import {
 import { Input } from "@/components/ui/input";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import type { Company } from "@/lib/types";
+import { companySchema, type CompanyFormData } from "@/lib/schemas";
 import { useEffect } from "react";
-
-const companyFormSchema = z.object({
-  id: z.string().optional(),
-  name: z.string().min(2, { message: "El nombre de la empresa debe tener al menos 2 caracteres." }),
-  contactPerson: z.string().min(2, { message: "El nombre del contacto debe tener al menos 2 caracteres." }),
-  email: z.string().email({ message: "Email inválido." }),
-  phone: z.string().min(7, { message: "El teléfono debe tener al menos 7 caracteres." }),
-  address: z.string().min(5, { message: "La dirección debe tener al menos 5 caracteres." }),
-});
-
-type CompanyFormData = z.infer<typeof companyFormSchema>;
 
 interface CompanyFormDialogProps {
   isOpen: boolean;
   onClose: () => void;
   onSubmit: (data: CompanyFormData) => void;
-  company?: Company | null; // For editing
+  company?: Company | null;
 }
 
 export function CompanyFormDialog({ isOpen, onClose, onSubmit, company }: CompanyFormDialogProps) {
   const form = useForm<CompanyFormData>({
-    resolver: zodResolver(companyFormSchema),
-    defaultValues: company || { name: "", contactPerson: "", email: "", phone: "", address: "" },
+    resolver: zodResolver(companySchema),
+    defaultValues: company || { name: "", contact_person: "", email: "", phone: "", address: "" },
   });
 
   useEffect(() => {
-    if (company) {
-      form.reset(company);
-    } else {
-      form.reset({ name: "", contactPerson: "", email: "", phone: "", address: "" });
+    if (isOpen) {
+      if (company) {
+        form.reset({
+          id: company.id,
+          name: company.name,
+          contact_person: company.contact_person || "",
+          email: company.email,
+          phone: company.phone || "",
+          address: company.address || "",
+        });
+      } else {
+        form.reset({ name: "", contact_person: "", email: "", phone: "", address: "" });
+      }
     }
   }, [company, form, isOpen]);
 
   const handleFormSubmit = (data: CompanyFormData) => {
     onSubmit(data);
-    onClose();
   };
 
   return (
@@ -81,12 +78,12 @@ export function CompanyFormDialog({ isOpen, onClose, onSubmit, company }: Compan
             />
             <FormField
               control={form.control}
-              name="contactPerson"
+              name="contact_person"
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Persona de Contacto</FormLabel>
                   <FormControl>
-                    <Input placeholder="Laura Gómez" {...field} />
+                    <Input placeholder="Laura Gómez" {...field} value={field.value ?? ""} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -112,7 +109,7 @@ export function CompanyFormDialog({ isOpen, onClose, onSubmit, company }: Compan
                 <FormItem>
                   <FormLabel>Teléfono</FormLabel>
                   <FormControl>
-                    <Input placeholder="987654321" {...field} />
+                    <Input placeholder="987654321" {...field} value={field.value ?? ""} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -125,7 +122,7 @@ export function CompanyFormDialog({ isOpen, onClose, onSubmit, company }: Compan
                 <FormItem>
                   <FormLabel>Dirección</FormLabel>
                   <FormControl>
-                    <Input placeholder="Parque Industrial 123, Ciudad" {...field} />
+                    <Input placeholder="Parque Industrial 123, Ciudad" {...field} value={field.value ?? ""} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>

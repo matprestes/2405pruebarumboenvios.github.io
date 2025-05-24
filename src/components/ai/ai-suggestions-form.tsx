@@ -4,7 +4,6 @@
 import { useState, type FC } from 'react';
 import { useForm, type SubmitHandler } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -12,33 +11,27 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import type { DeliveryOptionSuggestion, PackageSize, DeliveryUrgency } from '@/lib/types';
-import { getAISuggestions } from '@/app/actions';
+import { getAISuggestions } from '@/app/ai-suggestions/actions'; // Updated import path
 import { useToast } from "@/hooks/use-toast";
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
+import { suggestDeliveryOptionsInputSchema, type AISuggestionsFormData } from '@/lib/schemas';
 
-const formSchema = z.object({
-  packageSize: z.enum(['small', 'medium', 'large'], { required_error: "El tamaño del paquete es requerido." }),
-  deliveryUrgency: z.enum(['standard', 'express', 'urgent'], { required_error: "La urgencia de entrega es requerida." }),
-  deliveryLocation: z.string().min(5, { message: "La ubicación de entrega debe tener al menos 5 caracteres." }),
-});
-
-type FormData = z.infer<typeof formSchema>;
 
 export const AiSuggestionsForm: FC = () => {
   const [suggestions, setSuggestions] = useState<DeliveryOptionSuggestion | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
 
-  const { register, handleSubmit, control, formState: { errors } } = useForm<FormData>({
-    resolver: zodResolver(formSchema),
+  const { register, handleSubmit, control, formState: { errors } } = useForm<AISuggestionsFormData>({
+    resolver: zodResolver(suggestDeliveryOptionsInputSchema),
   });
 
-  const onSubmit: SubmitHandler<FormData> = async (data) => {
+  const onSubmit: SubmitHandler<AISuggestionsFormData> = async (data) => {
     setIsLoading(true);
     setSuggestions(null);
     const result = await getAISuggestions({
-      packageSize: data.packageSize as PackageSize,
-      deliveryUrgency: data.deliveryUrgency as DeliveryUrgency,
+      packageSize: data.packageSize as PackageSize, // Casting is okay if enums match
+      deliveryUrgency: data.deliveryUrgency as DeliveryUrgency, // Casting is okay if enums match
       deliveryLocation: data.deliveryLocation,
     });
     setIsLoading(false);
@@ -152,3 +145,4 @@ export const AiSuggestionsForm: FC = () => {
     </div>
   );
 };
+

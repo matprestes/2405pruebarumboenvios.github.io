@@ -2,52 +2,73 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import type { Shipment } from "@/lib/types";
+import type { ShipmentWithRelations } from "@/lib/types";
 import { PageTitle } from "@/components/ui/page-title";
 import { DataTable } from "@/components/data-table";
 import { getShipmentColumns } from "@/components/shipments/shipment-columns";
 import { Button } from "@/components/ui/button";
 import { PlusCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { getShipments, deleteShipment as deleteShipmentAction } from './actions'; 
 // Placeholder for Shipment Detail Dialog/Modal and Edit/Delete Modals
-// import { ShipmentDetailDialog } from "@/components/shipments/shipment-detail-dialog"; 
-
-const initialShipments: Shipment[] = [
-  { id: "ENV001", origin: "Bodega Central, CDMX", destination: "Cliente A, Guadalajara", clientName: "Empresa XYZ", courierName: "Pedro Páramo", status: "In Transit", creationDate: "2024-07-15T10:00:00Z", estimatedDeliveryDate: "2024-07-18T17:00:00Z", packageDetails: { weightKg: 5, dimensionsCm: "30x20x10", description: "Electrónicos", type: 'Medium Box'}, cost: 150.00 },
-  { id: "ENV002", origin: "Almacén Norte, Monterrey", destination: "Oficina Sur, Puebla", clientName: "Particular Juan Pérez", status: "Delivered", creationDate: "2024-07-10T14:30:00Z", estimatedDeliveryDate: "2024-07-12T12:00:00Z", packageDetails: { weightKg: 1.5, dimensionsCm: "15x10x5", description: "Documentos Urgentes", type: 'Envelope'}, cost: 80.50 },
-  { id: "ENV003", origin: "Tienda Centro, Querétaro", destination: "Sucursal Este, León", clientName: "Comercializadora Sol", status: "Pending", creationDate: "2024-07-16T09:15:00Z", packageDetails: { weightKg: 22, dimensionsCm: "60x40x30", description: "Material de Oficina", type: 'Large Box'}, cost: 220.00 },
-];
+// import { ShipmentFormDialog } from "@/components/shipments/shipment-form-dialog"; 
 
 export default function ShipmentsPage() {
-  const [shipments, setShipments] = useState<Shipment[]>([]);
-  const [selectedShipment, setSelectedShipment] = useState<Shipment | null>(null);
+  const [shipments, setShipments] = useState<ShipmentWithRelations[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  // const [selectedShipment, setSelectedShipment] = useState<ShipmentWithRelations | null>(null);
   // const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false);
+  // const [isFormOpen, setIsFormOpen] = useState(false);
+  // const [editingShipment, setEditingShipment] = useState<ShipmentWithRelations | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
-    setShipments(initialShipments);
+    const fetchShipments = async () => {
+      setIsLoading(true);
+      const fetchedShipments = await getShipments();
+      setShipments(fetchedShipments);
+      setIsLoading(false);
+    };
+    fetchShipments();
   }, []);
 
-  const handleViewDetails = (shipment: Shipment) => {
-    setSelectedShipment(shipment);
+  const handleViewDetails = (shipment: ShipmentWithRelations) => {
+    // setSelectedShipment(shipment);
     // setIsDetailDialogOpen(true);
     toast({ title: "Ver Detalles", description: `Mostrando detalles para envío ${shipment.id}. (Funcionalidad de diálogo pendiente)`});
   };
 
-  const handleEdit = (shipment: Shipment) => {
+  const handleEdit = (shipment: ShipmentWithRelations) => {
+    // setEditingShipment(shipment);
+    // setIsFormOpen(true);
     toast({ title: "Editar Envío", description: `Funcionalidad de edición para ${shipment.id} próximamente.` });
   };
 
-  const handleDelete = (shipment: Shipment) => {
-    toast({ title: "Eliminar Envío", description: `Funcionalidad de eliminación para ${shipment.id} próximamente.`, variant: "destructive" });
+  const handleDelete = async (shipment: ShipmentWithRelations) => {
+    // Implement confirmation dialog before deleting
+    const confirmed = confirm(`¿Estás seguro de que quieres eliminar el envío ${shipment.id}?`);
+    if (confirmed && shipment.id) {
+      const result = await deleteShipmentAction(shipment.id);
+      if (result.error) {
+        toast({ variant: "destructive", title: "Error al eliminar", description: result.error });
+      } else {
+        setShipments(shipments.filter(s => s.id !== shipment.id));
+        toast({ title: "Envío Eliminado", description: `El envío ${shipment.id} ha sido eliminado.` });
+      }
+    }
   };
   
   const handleAddNewShipment = () => {
-    // This would typically open a form or navigate to a new shipment page
+    // setEditingShipment(null);
+    // setIsFormOpen(true);
     toast({ title: "Nuevo Envío", description: "Funcionalidad para crear nuevo envío próximamente." });
   };
 
   const columns = getShipmentColumns(handleViewDetails, handleEdit, handleDelete);
+  
+  if (isLoading) {
+    return <div className="container mx-auto py-8"><PageTitle>Gestión de Envíos</PageTitle><p>Cargando envíos...</p></div>;
+  }
 
   return (
     <div className="container mx-auto py-8">
@@ -60,11 +81,19 @@ export default function ShipmentsPage() {
       <DataTable
         columns={columns}
         data={shipments}
-        searchKey="id" // Or clientName, destination etc.
+        searchKey="id" 
         searchPlaceholder="Buscar por ID, cliente, destino..."
       />
       {/* 
-      {selectedShipment && (
+      {isFormOpen && (
+        <ShipmentFormDialog 
+          isOpen={isFormOpen} 
+          onClose={() => { setIsFormOpen(false); setEditingShipment(null); }} 
+          onSubmit={handleFormSubmit} // Implement this
+          shipment={editingShipment} 
+        />
+      )}
+      {selectedShipment && isDetailDialogOpen && (
         <ShipmentDetailDialog 
           isOpen={isDetailDialogOpen} 
           onClose={() => setIsDetailDialogOpen(false)} 

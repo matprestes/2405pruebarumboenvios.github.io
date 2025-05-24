@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import type { Client } from "@/lib/types";
+import type { Client as ClientType } from "@/lib/types";
 import { PageTitle } from "@/components/ui/page-title";
 import { DataTable } from "@/components/data-table";
 import { getClientColumns } from "@/components/clients/client-columns";
@@ -18,24 +18,25 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-
-const initialClients: Client[] = [
-  { id: "1", name: "Ana García", email: "ana.garcia@example.com", phone: "555-0101", address: "Av. Siempre Viva 742" },
-  { id: "2", name: "Carlos López", email: "carlos.lopez@example.com", phone: "555-0102", address: "Calle Falsa 123" },
-  { id: "3", name: "Sofía Martínez", email: "sofia.martinez@example.com", phone: "555-0103", address: "Boulevard de los Sueños Rotos 45" },
-];
-
+import { getClients, createClient, updateClient, deleteClient } from './actions';
+import type { ClientFormData } from "@/lib/schemas";
 
 export default function ClientsPage() {
-  const [clients, setClients] = useState<Client[]>([]);
+  const [clients, setClients] = useState<ClientType[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [isFormOpen, setIsFormOpen] = useState(false);
-  const [editingClient, setEditingClient] = useState<Client | null>(null);
-  const [clientToDelete, setClientToDelete] = useState<Client | null>(null);
+  const [editingClient, setEditingClient] = useState<ClientType | null>(null);
+  const [clientToDelete, setClientToDelete] = useState<ClientType | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
-    // Simulate fetching data
-    setClients(initialClients);
+    const fetchClients = async () => {
+      setIsLoading(true);
+      const fetchedClients = await getClients();
+      setClients(fetchedClients);
+      setIsLoading(false);
+    };
+    fetchClients();
   }, []);
 
   const handleAddNew = () => {
@@ -43,37 +44,58 @@ export default function ClientsPage() {
     setIsFormOpen(true);
   };
 
-  const handleEdit = (client: Client) => {
+  const handleEdit = (client: ClientType) => {
     setEditingClient(client);
     setIsFormOpen(true);
   };
 
-  const handleDeletePrompt = (client: Client) => {
+  const handleDeletePrompt = (client: ClientType) => {
     setClientToDelete(client);
   };
 
-  const handleDeleteConfirm = () => {
-    if (clientToDelete) {
-      setClients(clients.filter(c => c.id !== clientToDelete.id));
-      toast({ title: "Cliente Eliminado", description: `El cliente ${clientToDelete.name} ha sido eliminado.` });
+  const handleDeleteConfirm = async () => {
+    if (clientToDelete?.id) {
+      const result = await deleteClient(clientToDelete.id);
+      if (result.error) {
+        toast({ variant: "destructive", title: "Error", description: result.error });
+      } else {
+        setClients(clients.filter(c => c.id !== clientToDelete.id));
+        toast({ title: "Cliente Eliminado", description: `El cliente ${clientToDelete.name} ha sido eliminado.` });
+      }
       setClientToDelete(null);
     }
   };
 
-  const handleSubmit = (data: Omit<Client, 'id'> & { id?: string }) => {
-    if (editingClient && data.id) {
-      setClients(clients.map(c => c.id === data.id ? { ...c, ...data } : c));
-      toast({ title: "Cliente Actualizado", description: `El cliente ${data.name} ha sido actualizado.` });
+  const handleSubmit = async (formData: ClientFormData) => {
+    let result;
+    if (editingClient && formData.id) {
+      result = await updateClient(formData.id, formData);
+      if (result.error) {
+        toast({ variant: "destructive", title: "Error al actualizar", description: result.error });
+      } else {
+        setClients(clients.map(c => c.id === formData.id ? { ...c, ...result.data } as ClientType : c));
+        toast({ title: "Cliente Actualizado", description: `El cliente ${formData.name} ha sido actualizado.` });
+      }
     } else {
-      const newClient = { ...data, id: String(Date.now()) }; // Simple ID generation
-      setClients([...clients, newClient]);
-      toast({ title: "Cliente Agregado", description: `El cliente ${newClient.name} ha sido agregado.` });
+      result = await createClient(formData);
+       if (result.error) {
+        toast({ variant: "destructive", title: "Error al crear", description: result.error });
+      } else if (result.data){
+        setClients([result.data as ClientType, ...clients]);
+        toast({ title: "Cliente Agregado", description: `El cliente ${result.data.name} ha sido agregado.` });
+      }
     }
-    setIsFormOpen(false);
-    setEditingClient(null);
+    if (!result.error) {
+      setIsFormOpen(false);
+      setEditingClient(null);
+    }
   };
   
   const columns = getClientColumns(handleEdit, handleDeletePrompt);
+
+  if (isLoading) {
+    return <div className="container mx-auto py-8"><PageTitle>Gestión de Clientes</PageTitle><p>Cargando clientes...</p></div>;
+  }
 
   return (
     <div className="container mx-auto py-8">

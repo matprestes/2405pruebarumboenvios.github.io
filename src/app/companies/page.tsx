@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import type { Company } from "@/lib/types";
+import type { Company as CompanyType } from "@/lib/types";
 import { PageTitle } from "@/components/ui/page-title";
 import { DataTable } from "@/components/data-table";
 import { getCompanyColumns } from "@/components/companies/company-columns";
@@ -18,21 +18,25 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-
-const initialCompanies: Company[] = [
-  { id: "comp1", name: "Tech Solutions Ltd.", contactPerson: "Juan Rodriguez", email: "juan.r@techsolutions.com", phone: "555-0201", address: "Silicon Valley 101" },
-  { id: "comp2", name: "Global Goods Inc.", contactPerson: "Maria Sanchez", email: "maria.s@globalgoods.com", phone: "555-0202", address: "World Trade Center 50" },
-];
+import { getCompanies, createCompany, updateCompany, deleteCompany } from './actions';
+import type { CompanyFormData } from "@/lib/schemas";
 
 export default function CompaniesPage() {
-  const [companies, setCompanies] = useState<Company[]>([]);
+  const [companies, setCompanies] = useState<CompanyType[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [isFormOpen, setIsFormOpen] = useState(false);
-  const [editingCompany, setEditingCompany] = useState<Company | null>(null);
-  const [companyToDelete, setCompanyToDelete] = useState<Company | null>(null);
+  const [editingCompany, setEditingCompany] = useState<CompanyType | null>(null);
+  const [companyToDelete, setCompanyToDelete] = useState<CompanyType | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
-    setCompanies(initialCompanies);
+    const fetchCompanies = async () => {
+      setIsLoading(true);
+      const fetchedCompanies = await getCompanies();
+      setCompanies(fetchedCompanies);
+      setIsLoading(false);
+    };
+    fetchCompanies();
   }, []);
 
   const handleAddNew = () => {
@@ -40,37 +44,58 @@ export default function CompaniesPage() {
     setIsFormOpen(true);
   };
 
-  const handleEdit = (company: Company) => {
+  const handleEdit = (company: CompanyType) => {
     setEditingCompany(company);
     setIsFormOpen(true);
   };
 
-  const handleDeletePrompt = (company: Company) => {
+  const handleDeletePrompt = (company: CompanyType) => {
     setCompanyToDelete(company);
   };
 
-  const handleDeleteConfirm = () => {
-    if (companyToDelete) {
-      setCompanies(companies.filter(c => c.id !== companyToDelete.id));
-      toast({ title: "Empresa Eliminada", description: `La empresa ${companyToDelete.name} ha sido eliminada.` });
+  const handleDeleteConfirm = async () => {
+    if (companyToDelete?.id) {
+      const result = await deleteCompany(companyToDelete.id);
+      if (result.error) {
+        toast({ variant: "destructive", title: "Error", description: result.error });
+      } else {
+        setCompanies(companies.filter(c => c.id !== companyToDelete.id));
+        toast({ title: "Empresa Eliminada", description: `La empresa ${companyToDelete.name} ha sido eliminada.` });
+      }
       setCompanyToDelete(null);
     }
   };
 
-  const handleSubmit = (data: Omit<Company, 'id'> & { id?: string }) => {
-    if (editingCompany && data.id) {
-      setCompanies(companies.map(c => c.id === data.id ? { ...c, ...data } : c));
-      toast({ title: "Empresa Actualizada", description: `La empresa ${data.name} ha sido actualizada.` });
+  const handleSubmit = async (formData: CompanyFormData) => {
+    let result;
+    if (editingCompany && formData.id) {
+      result = await updateCompany(formData.id, formData);
+      if (result.error) {
+        toast({ variant: "destructive", title: "Error al actualizar", description: result.error });
+      } else {
+        setCompanies(companies.map(c => c.id === formData.id ? { ...c, ...result.data } as CompanyType : c));
+        toast({ title: "Empresa Actualizada", description: `La empresa ${formData.name} ha sido actualizada.` });
+      }
     } else {
-      const newCompany = { ...data, id: String(Date.now()) };
-      setCompanies([...companies, newCompany]);
-      toast({ title: "Empresa Agregada", description: `La empresa ${newCompany.name} ha sido agregada.` });
+      result = await createCompany(formData);
+      if (result.error) {
+        toast({ variant: "destructive", title: "Error al crear", description: result.error });
+      } else if (result.data) {
+        setCompanies([result.data as CompanyType, ...companies]);
+        toast({ title: "Empresa Agregada", description: `La empresa ${result.data.name} ha sido agregada.` });
+      }
     }
-    setIsFormOpen(false);
-    setEditingCompany(null);
+    if (!result.error) {
+      setIsFormOpen(false);
+      setEditingCompany(null);
+    }
   };
 
   const columns = getCompanyColumns(handleEdit, handleDeletePrompt);
+
+  if (isLoading) {
+    return <div className="container mx-auto py-8"><PageTitle>Gestión de Empresas</PageTitle><p>Cargando empresas...</p></div>;
+  }
 
   return (
     <div className="container mx-auto py-8">

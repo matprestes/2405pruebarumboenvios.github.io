@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import type { Courier } from "@/lib/types";
+import type { Courier as CourierType } from "@/lib/types";
 import { PageTitle } from "@/components/ui/page-title";
 import { DataTable } from "@/components/data-table";
 import { getCourierColumns } from "@/components/couriers/courier-columns";
@@ -18,22 +18,25 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-
-const initialCouriers: Courier[] = [
-  { id: "cour1", name: "Miguel Ángel", vehicleType: "Motorcycle", plateNumber: "MOTO-01", phone: "555-0301", status: "Available" },
-  { id: "cour2", name: "Lucía Fernández", vehicleType: "Van", plateNumber: "VAN-007", phone: "555-0302", status: "On Delivery" },
-  { id: "cour3", name: "David Jiménez", vehicleType: "Bicycle", plateNumber: "BICI-03", phone: "555-0303", status: "Offline" },
-];
+import { getCouriers, createCourier, updateCourier, deleteCourier } from './actions';
+import type { CourierFormData } from "@/lib/schemas";
 
 export default function CouriersPage() {
-  const [couriers, setCouriers] = useState<Courier[]>([]);
+  const [couriers, setCouriers] = useState<CourierType[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [isFormOpen, setIsFormOpen] = useState(false);
-  const [editingCourier, setEditingCourier] = useState<Courier | null>(null);
-  const [courierToDelete, setCourierToDelete] = useState<Courier | null>(null);
+  const [editingCourier, setEditingCourier] = useState<CourierType | null>(null);
+  const [courierToDelete, setCourierToDelete] = useState<CourierType | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
-    setCouriers(initialCouriers);
+    const fetchCouriers = async () => {
+      setIsLoading(true);
+      const fetchedCouriers = await getCouriers();
+      setCouriers(fetchedCouriers);
+      setIsLoading(false);
+    };
+    fetchCouriers();
   }, []);
 
   const handleAddNew = () => {
@@ -41,37 +44,58 @@ export default function CouriersPage() {
     setIsFormOpen(true);
   };
 
-  const handleEdit = (courier: Courier) => {
+  const handleEdit = (courier: CourierType) => {
     setEditingCourier(courier);
     setIsFormOpen(true);
   };
 
-  const handleDeletePrompt = (courier: Courier) => {
+  const handleDeletePrompt = (courier: CourierType) => {
     setCourierToDelete(courier);
   };
 
-  const handleDeleteConfirm = () => {
-    if (courierToDelete) {
-      setCouriers(couriers.filter(c => c.id !== courierToDelete.id));
-      toast({ title: "Repartidor Eliminado", description: `El repartidor ${courierToDelete.name} ha sido eliminado.` });
+  const handleDeleteConfirm = async () => {
+    if (courierToDelete?.id) {
+      const result = await deleteCourier(courierToDelete.id);
+      if (result.error) {
+        toast({ variant: "destructive", title: "Error", description: result.error });
+      } else {
+        setCouriers(couriers.filter(c => c.id !== courierToDelete.id));
+        toast({ title: "Repartidor Eliminado", description: `El repartidor ${courierToDelete.name} ha sido eliminado.` });
+      }
       setCourierToDelete(null);
     }
   };
 
-  const handleSubmit = (data: Omit<Courier, 'id'> & { id?: string }) => {
-    if (editingCourier && data.id) {
-      setCouriers(couriers.map(c => c.id === data.id ? { ...c, ...data } as Courier : c));
-      toast({ title: "Repartidor Actualizado", description: `El repartidor ${data.name} ha sido actualizado.` });
+  const handleSubmit = async (formData: CourierFormData) => {
+    let result;
+    if (editingCourier && formData.id) {
+      result = await updateCourier(formData.id, formData);
+      if (result.error) {
+        toast({ variant: "destructive", title: "Error al actualizar", description: result.error });
+      } else {
+        setCouriers(couriers.map(c => c.id === formData.id ? { ...c, ...result.data } as CourierType : c));
+        toast({ title: "Repartidor Actualizado", description: `El repartidor ${formData.name} ha sido actualizado.` });
+      }
     } else {
-      const newCourier = { ...data, id: String(Date.now()) } as Courier;
-      setCouriers([...couriers, newCourier]);
-      toast({ title: "Repartidor Agregado", description: `El repartidor ${newCourier.name} ha sido agregado.` });
+      result = await createCourier(formData);
+      if (result.error) {
+        toast({ variant: "destructive", title: "Error al crear", description: result.error });
+      } else if (result.data){
+        setCouriers([result.data as CourierType, ...couriers]);
+        toast({ title: "Repartidor Agregado", description: `El repartidor ${result.data.name} ha sido agregado.` });
+      }
     }
-    setIsFormOpen(false);
-    setEditingCourier(null);
+    if (!result.error) {
+      setIsFormOpen(false);
+      setEditingCourier(null);
+    }
   };
 
   const columns = getCourierColumns(handleEdit, handleDeletePrompt);
+
+  if (isLoading) {
+    return <div className="container mx-auto py-8"><PageTitle>Gestión de Repartidores</PageTitle><p>Cargando repartidores...</p></div>;
+  }
 
   return (
     <div className="container mx-auto py-8">
